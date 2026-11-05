@@ -1,0 +1,42 @@
+# Go build outputs
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.test
+*.out
+*.syso
+
+# Node / Next.js outputs
+node_modules/
+.next/
+/web/out/
+/web/coverage/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local configuration, credentials, and user data
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+*.pem
+*.key
+/data/
+/vault/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*
