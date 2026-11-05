@@ -16,7 +16,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: test -z "$(gofmt -l $(git ls-files '*.go'))"
+      # third_party/walk is a locally patched upstream dependency; keep its source formatting intact.
+      - run: test -z "$(gofmt -l $(git ls-files '*.go' ':!:third_party/**'))"
       - run: go vet ./...
       - run: go test ./...
 
