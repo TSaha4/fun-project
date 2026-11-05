@@ -1,26 +1,38 @@
-export const themes = ["warm-house", "coder-terminal", "cutesy-pastel", "anime-editorial", "focus-minimal"] as const;
+export const themes = ["cozy", "midnight", "sakura", "forest", "minimal"] as const;
 export type ThemeId = (typeof themes)[number];
 
 export const themeLabels: Record<ThemeId, string> = {
-  "warm-house": "Warm house",
-  "coder-terminal": "Coder / Terminal",
-  "cutesy-pastel": "Cutesy Pastel",
-  "anime-editorial": "Anime-inspired Editorial",
-  "focus-minimal": "Focus / Minimal",
+  cozy: "Cozy",
+  midnight: "Midnight",
+  sakura: "Sakura",
+  forest: "Forest",
+  minimal: "Minimal",
 };
 
 export const THEME_STORAGE_KEY = "local-capture-theme";
+const legacyThemes: Record<string, ThemeId> = {
+  "warm-house": "cozy",
+  "coder-terminal": "midnight",
+  "cutesy-pastel": "sakura",
+  "anime-editorial": "sakura",
+  "focus-minimal": "minimal",
+};
 
 export function isThemeId(value: string | null): value is ThemeId {
   return value !== null && themes.includes(value as ThemeId);
 }
 
-export function readThemePreference(storage: Pick<Storage, "getItem">): ThemeId {
+export function readThemePreference(storage: Pick<Storage, "getItem" | "setItem">): ThemeId {
   try {
     const value = storage.getItem(THEME_STORAGE_KEY);
-    return isThemeId(value) ? value : "warm-house";
+    if (isThemeId(value)) return value;
+    if (value && legacyThemes[value]) {
+      storage.setItem(THEME_STORAGE_KEY, legacyThemes[value]);
+      return legacyThemes[value];
+    }
+    return "cozy";
   } catch {
-    return "warm-house";
+    return "cozy";
   }
 }
 

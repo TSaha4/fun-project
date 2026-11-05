@@ -224,7 +224,7 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 }
 
 func (s *Store) List(ctx context.Context, q app.ListNotesQuery) ([]domain.Note, error) {
-	return s.queryNotes(ctx, `SELECT n.id FROM notes n WHERE 1=1`, nil, q.CollectionID, q.TagID, q.Type, q.Pinned, q.Archived, q.CreatedAfter, q.CreatedBefore, q.Limit, q.Offset)
+	return s.queryNotes(ctx, `SELECT n.id FROM notes n WHERE 1=1`, nil, q.CollectionID, q.TagID, q.InboxOnly, q.Type, q.Pinned, q.Archived, q.CreatedAfter, q.CreatedBefore, q.Limit, q.Offset)
 }
 
 func (s *Store) Search(ctx context.Context, q app.SearchQuery) ([]domain.Note, error) {
@@ -240,13 +240,16 @@ func (s *Store) Search(ctx context.Context, q app.SearchQuery) ([]domain.Note, e
 			args = append(args, id)
 		}
 	}
-	return s.queryNotes(ctx, base, args, q.CollectionID, "", q.Type, q.Pinned, q.Archived, q.CreatedAfter, q.CreatedBefore, q.Limit, q.Offset)
+	return s.queryNotes(ctx, base, args, q.CollectionID, "", false, q.Type, q.Pinned, q.Archived, q.CreatedAfter, q.CreatedBefore, q.Limit, q.Offset)
 }
 
-func (s *Store) queryNotes(ctx context.Context, base string, args []any, collectionID, tagID string, noteType domain.NoteType, pinned, archived *bool, after, before *time.Time, limit, offset int) ([]domain.Note, error) {
+func (s *Store) queryNotes(ctx context.Context, base string, args []any, collectionID, tagID string, inboxOnly bool, noteType domain.NoteType, pinned, archived *bool, after, before *time.Time, limit, offset int) ([]domain.Note, error) {
 	if collectionID != "" {
 		base += ` AND n.collection_id=?`
 		args = append(args, collectionID)
+	}
+	if inboxOnly {
+		base += ` AND n.collection_id IS NULL`
 	}
 	if tagID != "" {
 		base += ` AND EXISTS(SELECT 1 FROM note_tags nt WHERE nt.note_id=n.id AND nt.tag_id=?)`

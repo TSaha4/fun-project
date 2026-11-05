@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node scripts/next.mjs dev",
+    "build": "node scripts/next.mjs build",
+    "start": "node scripts/next.mjs start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test src/lib/api/client.test.ts src/lib/server/proxy.test.ts src/lib/theme/themes.test.ts src/lib/companion/companion-state.test.ts"
@@ -14,6 +14,9 @@
     "next": "^15.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.23"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

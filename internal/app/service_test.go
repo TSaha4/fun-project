@@ -71,6 +71,13 @@ func (m *memoryCollections) GetCollection(_ context.Context, id string) (domain.
 	}
 	return c, nil
 }
+func (m *memoryCollections) ListCollections(_ context.Context) ([]domain.Collection, error) {
+	out := []domain.Collection{}
+	for _, c := range m.values {
+		out = append(out, c)
+	}
+	return out, nil
+}
 
 type memoryTags struct{ values map[string]domain.Tag }
 

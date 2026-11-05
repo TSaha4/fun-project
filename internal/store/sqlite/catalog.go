@@ -36,6 +36,38 @@ func (s *Store) GetCollection(ctx context.Context, id string) (domain.Collection
 	return c, err
 }
 
+func (s *Store) ListCollections(ctx context.Context) ([]domain.Collection, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id,name,created_at,updated_at FROM collections ORDER BY name COLLATE NOCASE,id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []domain.Collection{}
+	for rows.Next() {
+		var c domain.Collection
+		var created, updated string
+		if err := rows.Scan(&c.ID, &c.Name, &created, &updated); err != nil {
+			return nil, err
+		}
+		c.CreatedAt, err = parseTime(created)
+		if err != nil {
+			return nil, err
+		}
+		c.UpdatedAt, err = parseTime(updated)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, c)
+	}
+	return result, rows.Err()
+}
+
+func (s *Store) NoteStats(ctx context.Context) (app.NoteStats, error) {
+	var stats app.NoteStats
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*),COALESCE(SUM(archived),0),COALESCE(SUM(pinned),0),COALESCE(SUM(type='task'),0) FROM notes`).Scan(&stats.Total, &stats.Archived, &stats.Pinned, &stats.WithTasks)
+	return stats, err
+}
+
 func (s *Store) CreateTag(ctx context.Context, t domain.Tag) error {
 	_, err := s.db.ExecContext(ctx, `INSERT INTO tags(id,name,created_at) VALUES(?,?,?)`, t.ID, t.Name, formatTime(t.CreatedAt))
 	if err != nil {

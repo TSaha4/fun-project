@@ -474,6 +474,102 @@ func TestNoteCRUDArchiveRestoreAndDelete(t *testing.T) {
 	resp.Body.Close()
 }
 
+func TestWriteScopesDoNotExposeNoteBodiesThroughMutationResponses(t *testing.T) {
+	permissions := map[Permission]bool{PermissionNotesWrite: true, PermissionNotesArchive: true, PermissionTagsWrite: true}
+	s, client, base := startTestServer(t, newFakeApplication(), permissions, 4096)
+	token := s.config.Token
+	privateTitle := "private-title-canary"
+	privateBody := "private-note-body-canary"
+	resp := apiRequest(t, client, base, http.MethodPost, "/api/v1/notes", token, "", fmt.Sprintf(`{"title":%q,"content":%q,"type":"idea"}`, privateTitle, privateBody), "")
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create status=%d", resp.StatusCode)
+	}
+	var receipt map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&receipt); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	noteID, _ := receipt["id"].(string)
+	if noteID == "" {
+		t.Fatalf("create receipt missing note ID: %#v", receipt)
+	}
+
+	checkNoBody := func(label string, response *http.Response) {
+		t.Helper()
+		defer response.Body.Close()
+		body, _ := io.ReadAll(response.Body)
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			t.Fatalf("%s status=%d body=%s", label, response.StatusCode, body)
+		}
+		for _, canary := range []string{privateTitle, privateBody, "revised-body-canary"} {
+			if strings.Contains(string(body), canary) {
+				t.Fatalf("%s exposed a note body without notes.read: %s", label, body)
+			}
+		}
+	}
+
+	update := `{"title":"changed","content":"revised-body-canary","type":"idea"}`
+	checkNoBody("update", apiRequest(t, client, base, http.MethodPut, "/api/v1/notes/"+noteID, token, "", update, ""))
+
+	resp = apiRequest(t, client, base, http.MethodPost, "/api/v1/tags", token, "", `{"name":"audit-tag"}`, "")
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("tag create status=%d", resp.StatusCode)
+	}
+	var tag domain.Tag
+	if err := json.NewDecoder(resp.Body).Decode(&tag); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	assignBody := fmt.Sprintf(`{"note_id":%q,"tag_ids":[%q]}`, noteID, tag.ID)
+	checkNoBody("tag assignment", apiRequest(t, client, base, http.MethodPost, "/api/v1/tags/assign", token, "", assignBody, ""))
+	checkNoBody("tag removal", apiRequest(t, client, base, http.MethodDelete, "/api/v1/notes/"+noteID+"/tags/"+tag.ID, token, "", "", ""))
+	checkNoBody("archive", apiRequest(t, client, base, http.MethodPost, "/api/v1/notes/"+noteID+"/archive", token, "", "", ""))
+	checkNoBody("restore", apiRequest(t, client, base, http.MethodPost, "/api/v1/notes/"+noteID+"/restore", token, "", "", ""))
+
+	resp = apiRequest(t, client, base, http.MethodGet, "/api/v1/notes/"+noteID, token, "", "", "")
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("note read without notes.read status=%d", resp.StatusCode)
+	}
+}
+
+func TestNoteReadRedactsAttachmentReferencesWithoutAttachmentScope(t *testing.T) {
+	application := newFakeApplication()
+	permissions := map[Permission]bool{PermissionNotesRead: true}
+	s, client, base := startTestServer(t, application, permissions, 4096)
+	note, err := domain.NewNote("note-id", "note", "body", domain.NoteTypeIdea, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	note.AttachmentIDs = []string{"private-attachment-id"}
+	application.mu.Lock()
+	application.notes[note.ID] = note
+	application.mu.Unlock()
+	resp := apiRequest(t, client, base, http.MethodGet, "/api/v1/notes/"+note.ID, s.config.Token, "", "", "")
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if strings.Contains(string(body), "private-attachment-id") {
+		t.Fatalf("note response exposed attachment reference without attachments.read: %s", body)
+	}
+}
+
+func TestNoteWriteCannotCreateReminderWithoutReminderEndpoint(t *testing.T) {
+	permissions := map[Permission]bool{PermissionNotesWrite: true}
+	application := newFakeApplication()
+	s, client, base := startTestServer(t, application, permissions, 4096)
+	body := `{"title":"note","content":"body","type":"task","reminder":{"due_at":"2026-12-01T10:00:00Z"}}`
+	resp := apiRequest(t, client, base, http.MethodPost, "/api/v1/notes", s.config.Token, "", body, "")
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("nested reminder bypass status=%d", resp.StatusCode)
+	}
+	application.mu.Lock()
+	defer application.mu.Unlock()
+	if len(application.notes) != 0 {
+		t.Fatal("note creation with an unauthorized embedded reminder reached the application service")
+	}
+}
+
 func TestConcurrentRequests(t *testing.T) {
 	s, c, base := startTestServer(t, newFakeApplication(), allPermissions(), 4096)
 	token := s.config.Token

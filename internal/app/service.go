@@ -14,12 +14,17 @@ type Service struct {
 	collections CollectionRepository
 	tags        TagRepository
 	searcher    Searcher
+	statistics  NoteStatistics
 	ids         IDGenerator
 	clock       Clock
 }
 
-func NewService(notes NoteRepository, collections CollectionRepository, tags TagRepository, searcher Searcher, ids IDGenerator, clock Clock) *Service {
-	return &Service{notes: notes, collections: collections, tags: tags, searcher: searcher, ids: ids, clock: clock}
+func NewService(notes NoteRepository, collections CollectionRepository, tags TagRepository, searcher Searcher, ids IDGenerator, clock Clock, statistics ...NoteStatistics) *Service {
+	service := &Service{notes: notes, collections: collections, tags: tags, searcher: searcher, ids: ids, clock: clock}
+	if len(statistics) > 0 {
+		service.statistics = statistics[0]
+	}
+	return service
 }
 
 type CreateNoteInput struct {
@@ -165,6 +170,17 @@ func (s *Service) CreateCollection(ctx context.Context, name string) (domain.Col
 		return domain.Collection{}, err
 	}
 	return collection, nil
+}
+
+func (s *Service) ListCollections(ctx context.Context) ([]domain.Collection, error) {
+	return s.collections.ListCollections(ctx)
+}
+
+func (s *Service) NoteStats(ctx context.Context) (NoteStats, error) {
+	if s.statistics == nil {
+		return NoteStats{}, fmt.Errorf("note statistics are unavailable")
+	}
+	return s.statistics.NoteStats(ctx)
 }
 
 func (s *Service) AssignTags(ctx context.Context, noteID string, tagIDs []string) (domain.Note, error) {

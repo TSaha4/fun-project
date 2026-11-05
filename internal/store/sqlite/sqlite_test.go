@@ -169,6 +169,43 @@ func TestSQLiteSearchAndFilters(t *testing.T) {
 	}
 }
 
+func TestSQLiteInboxOnlyListsUncollectedActiveNotes(t *testing.T) {
+	ctx := context.Background()
+	store, _ := openTestStore(t)
+	now := time.Date(2026, 11, 5, 0, 0, 0, 0, time.UTC)
+	collection, err := domain.NewCollection("work", "Work", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateCollection(ctx, collection); err != nil {
+		t.Fatal(err)
+	}
+	inbox := sampleNote("inbox")
+	inbox.CreatedAt = now
+	inbox.UpdatedAt = now
+	collected := sampleNote("collected")
+	collected.CreatedAt = now
+	collected.UpdatedAt = now
+	collected.CollectionID = collection.ID
+	archived := sampleNote("archived")
+	archived.CreatedAt = now
+	archived.UpdatedAt = now
+	archived.Archived = true
+	for _, note := range []domain.Note{inbox, collected, archived} {
+		if err := store.CreateNote(ctx, note); err != nil {
+			t.Fatal(err)
+		}
+	}
+	active := false
+	got, err := store.List(ctx, app.ListNotesQuery{InboxOnly: true, Archived: &active, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "inbox" {
+		t.Fatalf("expected only the active uncollected note, got %+v", got)
+	}
+}
+
 func TestSQLiteTransactionsDuplicatesEmptyAndSpecialCharacters(t *testing.T) {
 	ctx := context.Background()
 	store, _ := openTestStore(t)

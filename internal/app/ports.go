@@ -18,6 +18,19 @@ type NoteRepository interface {
 type CollectionRepository interface {
 	CreateCollection(context.Context, domain.Collection) error
 	GetCollection(context.Context, string) (domain.Collection, error)
+	ListCollections(context.Context) ([]domain.Collection, error)
+}
+
+// NoteStats is aggregate metadata and never includes note content.
+type NoteStats struct {
+	Total     int `json:"total"`
+	Archived  int `json:"archived"`
+	Pinned    int `json:"pinned"`
+	WithTasks int `json:"with_tasks"`
+}
+
+type NoteStatistics interface {
+	NoteStats(context.Context) (NoteStats, error)
 }
 
 type TagRepository interface {
@@ -48,6 +61,7 @@ type Clock interface{ Now() time.Time }
 type ListNotesQuery struct {
 	CollectionID  string
 	TagID         string
+	InboxOnly     bool
 	Type          domain.NoteType
 	Pinned        *bool
 	Archived      *bool

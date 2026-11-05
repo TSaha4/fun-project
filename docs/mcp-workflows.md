@@ -1,0 +1,38 @@
+# MCP workflow evaluation and privacy model
+
+## Privacy boundary
+
+The MCP process runs locally and never calls an external AI provider. Prompts are opt-in instructions returned to the connected client. Workflows can use deterministic rules or a local model; none requires a remote provider. If the client uses a hosted model, it may send selected tool results or explicitly supplied prompt content to that provider; the server cannot control the client's provider. Prompts request narrow searches and bounded results. They never read the entire vault automatically. The user should review the MCP client's provider and data-retention settings before using private notes with it.
+
+All workflows are read-only by default. A workflow may propose changes, but the assistant must ask the user before calling a mutation tool. The corresponding `notes:create`, `notes:edit`, `notes:archive`, or `collections:write` scope must also be granted separately. Prompt text never grants a scope.
+
+## Workflow assessment
+
+| # | Workflow and purpose | Tools / resources | Required scopes | External AI provider? | Approval and data boundary | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | **Personal knowledge librarian:** find themes, gaps, and candidate organization for selected knowledge. | `search_notes`, `get_recent_notes`, `list_collections`, optionally `get_inbox_notes` | `notes:read`; `collections:read` when listing collections | No remote provider; a local/client model is optional for synthesis | Search a topic or bounded inbox. Suggest only; user approves tags/moves. | Implemented prompt |
+| 2 | **Find related ideas:** discover notes that share a topic or concept. | `search_notes`, optionally `list_collections` | `notes:read`; optional `collections:read` | No remote provider; semantic comparison benefits from a model, which can run locally | Require a user query; cite matching note IDs/titles; no edits. | Implemented prompt |
+| 3 | **Connect notes across collections:** explain links among selected notes in different collections. | `search_notes`, `list_collections`, `get_note` | `notes:read`, `collections:read` | No remote provider; local/client model optional | Use only a selected query or IDs; propose links, never create them automatically. | Implemented prompt |
+| 4 | **Summarise recent notes:** make a short digest of a bounded recent set. | `get_recent_notes` | `notes:read` | No remote provider; local/client model optional for narrative summaries | Default to a small bounded result; user initiates the prompt. | Implemented prompt |
+| 5 | **Weekly personal review:** review notes and reminders from one selected period. | `search_notes` with `created_after`/`created_before`, `get_due_items` | `notes:read`, `metadata:read` | No remote provider; synthesis can use a local model | Period is explicit and bounded; ask before changing a task or note. | Implemented prompt |
+| 6 | **Task prioritisation:** rank due and older tasks using existing reminder/date metadata. | `get_due_items`, `search_notes` filtered to `type=task` | `metadata:read`, `notes:read` | No; due-date/age ordering is deterministic; model optional for context | Explain the rule and missing data; never snooze, complete, or edit tasks automatically. | Implemented prompt |
+| 7 | **Meeting notes and action extraction:** extract decisions, owners, dates, and actions from text the user supplies. | `meeting_action_extraction` prompt; optionally `create_note` only after user approval | None to produce a draft; `notes:create` to save an approved result | No remote provider; extraction needs a model, which can run locally | Only the user-provided excerpt is placed in the prompt. No vault-wide reads. The user approves any save. | Implemented prompt |
+| 8 | **Learning companion:** explain or quiz on a selected topic from saved notes. | `search_notes`, `get_note` | `notes:read` | No remote provider; a local model can teach or quiz | Require a topic or selected notes; do not scan all notes. | Deferred |
+| 9 | **Flashcard generation:** draft cards from a chosen note/topic. | `search_notes`, `get_note` | `notes:read` | No remote provider; a local model can generate cards | Return a draft; no notes are created unless the user approves and a future save workflow is explicitly added. | Deferred |
+| 10 | **Project context pack for coding assistants:** assemble a concise, cited set of relevant project notes. | `search_notes`, `list_collections`, optionally `get_note` | `notes:read`; optional `collections:read` | No server-side provider; the coding assistant may transmit selected context to its provider | Require a project query; bounded results only; do not request all notes. Show the pack before any external use when the client allows it. | Implemented prompt |
+| 11 | **Reading queue assistant:** list saved link notes and help order them. | `search_notes` filtered to `type=link`, optionally `get_recent_notes` | `notes:read` | No remote provider; metadata ordering is deterministic | This server does not fetch webpages. Only saved link notes matching the query are returned. | Implemented prompt |
+| 12 | **Forgotten task detection:** find overdue reminders and old active task notes. | `get_due_items`, `search_notes` filtered to `type=task` and `archived=false` | `metadata:read`, `notes:read` | No; due date/age rules are deterministic; local model optional for contextual ranking | Return evidence and ask before completing, snoozing, archiving, or editing. | Implemented prompt |
+| 13 | **Inbox organisation:** recommend collections/tags for active notes without a collection. | `get_inbox_notes`, `list_collections` | `notes:read`, `collections:read` | No remote provider; local/client model optional for semantic classification | The new tool returns at most 50 active uncollected notes. Recommendations only; any move/tag requires explicit approval and separately authorized mutation support. | Implemented prompt |
+| 14 | **Export assistant:** prepare a user-selected export or summary. | Existing bounded `search_notes` / `get_note`; no file export tool is exposed | `notes:read` | No provider for deterministic formatting; optional for summaries | Not implemented as an export operation because no MCP export interface exists. Do not fetch the whole vault or write a file without a separate approved export workflow. | Deferred |
+
+## Implemented in this increment
+
+- Added date, tag, pinned, archived, collection, and note-type filters to `search_notes`. Creation time bounds are RFC3339 timestamps; results remain capped at 50 notes and the configured response-size limit.
+- Added `get_inbox_notes`, which asks the application service for active notes with no collection and caps its results at 50.
+- Added opt-in prompts for knowledge librarian, related ideas, cross-collection connections, recent and weekly summaries/reviews, task prioritisation, inbox organisation, project context, reading queue review, and user-supplied meeting action extraction.
+- Meeting content is limited to 64 KiB and is only returned as part of the prompt the user explicitly requests. The MCP server does not call a model provider.
+- Added SQL integration coverage to ensure inbox filtering selects only uncollected active notes, plus MCP tests confirming workflow filters reach the application layer.
+
+## Deferred
+
+Semantic clustering, generated summaries, flashcards, and learning plans are intentionally performed by the selected MCP client rather than the local server. The application has no tag mutation tool in the MCP interface, no safe export interface, and no priority field; those workflows remain suggestion-only until their application services, permissions, and approval UX are designed.

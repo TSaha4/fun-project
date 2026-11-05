@@ -11,7 +11,7 @@ type CharacterProps = { state: CompanionState };
 type CharacterID = "panda";
 const characterRegistry: Record<CharacterID, ComponentType<CharacterProps>> = { panda: PandaCharacter };
 const themeCharacters: Record<ThemeId, CharacterID> = {
-  "warm-house": "panda", "coder-terminal": "panda", "cutesy-pastel": "panda", "anime-editorial": "panda", "focus-minimal": "panda",
+  "cozy": "panda", "midnight": "panda", "sakura": "panda", "forest": "panda", "minimal": "panda",
 };
 const stateText: Record<CompanionState, string> = {
   idle: "Here with you.", blink: "Hi!", working: "On it…", saving: "Saving your note…", save_success: "Safely captured!",

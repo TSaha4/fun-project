@@ -19,27 +19,25 @@ import (
 const apiPrefix = "/api/v1"
 
 type createNoteRequest struct {
-	Title         string           `json:"title"`
-	Content       string           `json:"content"`
-	Type          domain.NoteType  `json:"type"`
-	CollectionID  string           `json:"collection_id"`
-	TagIDs        []string         `json:"tag_ids"`
-	Pinned        bool             `json:"pinned"`
-	Reminder      *domain.Reminder `json:"reminder"`
-	SourceURL     string           `json:"source_url"`
-	AttachmentIDs []string         `json:"attachment_ids"`
+	Title         string          `json:"title"`
+	Content       string          `json:"content"`
+	Type          domain.NoteType `json:"type"`
+	CollectionID  string          `json:"collection_id"`
+	TagIDs        []string        `json:"tag_ids"`
+	Pinned        bool            `json:"pinned"`
+	SourceURL     string          `json:"source_url"`
+	AttachmentIDs []string        `json:"attachment_ids"`
 }
 
 type updateNoteRequest struct {
-	Title         string           `json:"title"`
-	Content       string           `json:"content"`
-	Type          domain.NoteType  `json:"type"`
-	CollectionID  *string          `json:"collection_id"`
-	TagIDs        *[]string        `json:"tag_ids"`
-	Pinned        *bool            `json:"pinned"`
-	Reminder      *domain.Reminder `json:"reminder"`
-	SourceURL     string           `json:"source_url"`
-	AttachmentIDs []string         `json:"attachment_ids"`
+	Title         string          `json:"title"`
+	Content       string          `json:"content"`
+	Type          domain.NoteType `json:"type"`
+	CollectionID  *string         `json:"collection_id"`
+	TagIDs        *[]string       `json:"tag_ids"`
+	Pinned        *bool           `json:"pinned"`
+	SourceURL     string          `json:"source_url"`
+	AttachmentIDs []string        `json:"attachment_ids"`
 }
 
 type searchRequest struct {
@@ -102,13 +100,13 @@ func (s *Server) routes(a Application) http.Handler {
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "Note fields exceed allowed limits or are missing")
 			return
 		}
-		in := app.CreateNoteInput{Title: input.Title, Content: input.Content, Type: input.Type, CollectionID: input.CollectionID, TagIDs: input.TagIDs, Pinned: input.Pinned, Reminder: input.Reminder, SourceURL: input.SourceURL, AttachmentIDs: input.AttachmentIDs}
+		in := app.CreateNoteInput{Title: input.Title, Content: input.Content, Type: input.Type, CollectionID: input.CollectionID, TagIDs: input.TagIDs, Pinned: input.Pinned, SourceURL: input.SourceURL, AttachmentIDs: input.AttachmentIDs}
 		n, err := a.CreateNote(r.Context(), in)
-		respond(w, r, n, err, http.StatusCreated)
+		respondNote(w, r, s, n, err, http.StatusCreated)
 	})
 	register("GET "+apiPrefix+"/notes/{id}", PermissionNotesRead, func(w http.ResponseWriter, r *http.Request) {
 		n, err := a.GetNote(r.Context(), resourceID(r, "id"))
-		respond(w, r, n, err, http.StatusOK)
+		respondNote(w, r, s, n, err, http.StatusOK)
 	})
 	register("PUT "+apiPrefix+"/notes/{id}", PermissionNotesWrite, func(w http.ResponseWriter, r *http.Request) {
 		var input updateNoteRequest
@@ -123,17 +121,17 @@ func (s *Server) routes(a Application) http.Handler {
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "Note fields exceed allowed limits or are missing")
 			return
 		}
-		in := app.UpdateNoteInput{Title: input.Title, Content: input.Content, Type: input.Type, CollectionID: input.CollectionID, TagIDs: input.TagIDs, Pinned: input.Pinned, Reminder: input.Reminder, SourceURL: input.SourceURL, AttachmentIDs: input.AttachmentIDs}
+		in := app.UpdateNoteInput{Title: input.Title, Content: input.Content, Type: input.Type, CollectionID: input.CollectionID, TagIDs: input.TagIDs, Pinned: input.Pinned, SourceURL: input.SourceURL, AttachmentIDs: input.AttachmentIDs}
 		n, err := a.UpdateNote(r.Context(), resourceID(r, "id"), in)
-		respond(w, r, n, err, http.StatusOK)
+		respondNote(w, r, s, n, err, http.StatusOK)
 	})
 	register("POST "+apiPrefix+"/notes/{id}/archive", PermissionNotesArchive, func(w http.ResponseWriter, r *http.Request) {
 		n, err := a.ArchiveNote(r.Context(), resourceID(r, "id"))
-		respond(w, r, n, err, http.StatusOK)
+		respondNote(w, r, s, n, err, http.StatusOK)
 	})
 	register("POST "+apiPrefix+"/notes/{id}/restore", PermissionNotesArchive, func(w http.ResponseWriter, r *http.Request) {
 		n, err := a.RestoreNote(r.Context(), resourceID(r, "id"))
-		respond(w, r, n, err, http.StatusOK)
+		respondNote(w, r, s, n, err, http.StatusOK)
 	})
 	register("DELETE "+apiPrefix+"/notes/{id}", PermissionNotesDelete, func(w http.ResponseWriter, r *http.Request) {
 		err := a.DeleteNote(r.Context(), resourceID(r, "id"))
@@ -146,7 +144,7 @@ func (s *Server) routes(a Application) http.Handler {
 			return
 		}
 		items, err := a.ListNotes(r.Context(), q)
-		respond(w, r, items, err, http.StatusOK)
+		respondNotes(w, r, s, items, err, http.StatusOK)
 	})
 	register("POST "+apiPrefix+"/notes/search", PermissionNotesRead, func(w http.ResponseWriter, r *http.Request) {
 		var input searchRequest
@@ -163,7 +161,7 @@ func (s *Server) routes(a Application) http.Handler {
 			return
 		}
 		items, err := a.SearchNotes(r.Context(), q)
-		respond(w, r, items, err, http.StatusOK)
+		respondNotes(w, r, s, items, err, http.StatusOK)
 	})
 
 	register("POST "+apiPrefix+"/collections", PermissionCollectionsWrite, func(w http.ResponseWriter, r *http.Request) {
@@ -233,11 +231,11 @@ func (s *Server) routes(a Application) http.Handler {
 			return
 		}
 		n, err := a.AssignTags(r.Context(), in.NoteID, in.TagIDs)
-		respond(w, r, n, err, http.StatusOK)
+		respondNote(w, r, s, n, err, http.StatusOK)
 	})
 	register("DELETE "+apiPrefix+"/notes/{id}/tags/{tag_id}", PermissionTagsWrite, func(w http.ResponseWriter, r *http.Request) {
 		n, err := a.RemoveTag(r.Context(), resourceID(r, "id"), resourceID(r, "tag_id"))
-		respond(w, r, n, err, http.StatusOK)
+		respondNote(w, r, s, n, err, http.StatusOK)
 	})
 
 	register("POST "+apiPrefix+"/attachments", PermissionAttachmentsWrite, func(w http.ResponseWriter, r *http.Request) {
@@ -453,6 +451,40 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error, succe
 	}
 	writeJSON(w, success, value)
 }
+
+type noteMutationReceipt struct {
+	ID        string    `json:"id"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func respondNote(w http.ResponseWriter, r *http.Request, s *Server, note domain.Note, err error, success int) {
+	if err != nil {
+		writeMappedError(w, r, err)
+		return
+	}
+	if !s.config.Permissions[PermissionNotesRead] {
+		writeJSON(w, success, noteMutationReceipt{ID: note.ID, UpdatedAt: note.UpdatedAt})
+		return
+	}
+	if !s.config.Permissions[PermissionAttachmentsRead] {
+		note.AttachmentIDs = nil
+	}
+	writeJSON(w, success, note)
+}
+
+func respondNotes(w http.ResponseWriter, r *http.Request, s *Server, notes []domain.Note, err error, success int) {
+	if err != nil {
+		writeMappedError(w, r, err)
+		return
+	}
+	if !s.config.Permissions[PermissionAttachmentsRead] {
+		for i := range notes {
+			notes[i].AttachmentIDs = nil
+		}
+	}
+	writeJSON(w, success, notes)
+}
+
 func respondDeleted(w http.ResponseWriter, r *http.Request, err error) {
 	if err != nil {
 		writeMappedError(w, r, err)

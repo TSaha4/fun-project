@@ -7,10 +7,10 @@ type ThemeContextValue = { theme: ThemeId; setTheme: (theme: ThemeId) => void };
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeId>("warm-house");
+  const [theme, setThemeState] = useState<ThemeId>("cozy");
 
   useEffect(() => {
-    let storedTheme: ThemeId = "warm-house";
+    let storedTheme: ThemeId = "cozy";
     try { storedTheme = readThemePreference(window.localStorage); } catch { /* storage can be disabled by browser policy */ }
     setThemeState(storedTheme);
     document.documentElement.dataset.theme = storedTheme;

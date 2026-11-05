@@ -1,6 +1,6 @@
 # Proposed Architecture
 
-**Status:** Proposal for review  
+**Status:** Proposal only; implementation status is tracked in [release-readiness audit](release-readiness-audit.md)
 **Product name:** Undecided; use a neutral internal identifier in code and documentation.  
 **Scope:** Architecture only. This document does not authorize implementation of deferred capabilities or settle the approval items below.
 
@@ -254,6 +254,6 @@ No cloud service, hosted database, telemetry, external AI API, broad extension a
 7. Add documented export and verified restore before broadening client integrations.
 8. Add the React dashboard as an API client.
 9. Add Chrome extension capture using the approved bridge and minimum permissions.
-10. Add MCP read-only capabilities first, then separately approved write/archive scopes, revocation, and audit.
+10. Add MCP capabilities with per-client read-only grants by default, then explicitly provision write/archive scopes, revocation, and content-free audit.
 11. Harden packaging, accessibility, recovery, and threat-model checks; only then consider deferred delight features.
 12. Design and implement the watchlist as a separate Part 2 module.
